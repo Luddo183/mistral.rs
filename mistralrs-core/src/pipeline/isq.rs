@@ -111,7 +111,10 @@ pub trait IsqModel {
                 .zip(devices)
                 .progress_with(bar)
                 .for_each(|((tensor, _), device)| {
-                    generate_isq!(tensor, device, dtype, n_quantized)
+                    let isq = generate_isq!(tensor, device, dtype, n_quantized);
+                    info!("Writing ISQ to file isq");
+                    fs::write("isq", isq).expect("Unable to write ISQ!");
+                    isq
                 });
         }
 

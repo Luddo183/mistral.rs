@@ -1,4 +1,5 @@
 use std::sync::{atomic::AtomicUsize, Arc};
+use std::fs;
 
 use candle_core::{
     quantized::{GgmlDType, QMatMul, QTensor},
@@ -122,7 +123,10 @@ pub trait IsqModel {
                 .zip(devices)
                 .progress_with(bar)
                 .for_each(|((tensor, _), device)| {
-                    generate_isq!(tensor, device, dtype, n_quantized)
+                    let isq = generate_isq!(tensor, device, dtype, n_quantized);
+                    info!("Writing ISQ to file isq");
+                    fs::write("isq", isq).expect("Unable to write ISQ!");
+                    isq
                 });
         }
         info!("Applied in-situ quantization into {dtype:?} to {n_quantized:?} tensors out of {total_tensors} total tensors.");

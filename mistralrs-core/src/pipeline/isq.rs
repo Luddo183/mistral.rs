@@ -1,5 +1,6 @@
 use std::sync::{atomic::AtomicUsize, Arc};
 use std::fs;
+use std::path::Path;
 
 use candle_core::{
     quantized::{GgmlDType, QMatMul, QTensor},
@@ -66,8 +67,27 @@ macro_rules! generate_isq {
                     QMatMul::QTensor(Arc::new(QTensor::quantize(&t, GgmlDType::F32).unwrap()))
                 },
                 QuantizationBehaviour::Quantize(dtype) => {
-                    $n_quantized.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-                    QMatMul::QTensor(Arc::new(QTensor::quantize(&t, dtype).unwrap()))
+                    let isq_exists = Path::new("isq").exists();
+                    if !isq_exists {
+                        info!("ISQ does not exist, creating new!");
+                        $n_quantized.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        let qtensor = QTensor::quantize(&t, dtype).unwrap();
+                        let data = qtensor.data().unwrap();
+                        let shape = qtensor.shape();
+                        info!("Writing ISQ to file isq");
+                        fs::write("isq", data).expect("Unable to write ISQ!");
+                        fs::write("isq_shape", shape.data()).expect("Unable to write ISQ!");
+                        // save the data here
+                        QMatMul::QTensor(Arc::new(qtensor))
+                    }
+                    else {
+                        $n_quantized.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                        let qtensor = QTensor::quantize(&t, dtype).unwrap();
+                        let data = qtensor.data().unwrap();
+                        info!("Writing ISQ to file isq");
+                        // save the data here
+                        QMatMul::QTensor(Arc::new(qtensor))
+                    }
                 }
             }
         }
@@ -112,8 +132,6 @@ pub trait IsqModel {
                 .progress_with(bar)
                 .for_each(|((tensor, _), device)| {
                     let isq = generate_isq!(tensor, device, dtype, n_quantized);
-                    info!("Writing ISQ to file isq");
-                    fs::write("isq", isq).expect("Unable to write ISQ!");
                     isq
                 });
         }
@@ -127,8 +145,6 @@ pub trait IsqModel {
                 .progress_with(bar)
                 .for_each(|((tensor, _), device)| {
                     let isq = generate_isq!(tensor, device, dtype, n_quantized);
-                    info!("Writing ISQ to file isq");
-                    fs::write("isq", isq).expect("Unable to write ISQ!");
                     isq
                 });
         }

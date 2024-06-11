@@ -1,8 +1,10 @@
 use std::sync::{atomic::AtomicUsize, Arc};
 use std::fs;
 use std::path::Path;
+use std::vec::Vec;
 
 use candle_core::{
+    shape::Shape,
     quantized::{GgmlDType, QMatMul, QTensor},
     Device, Tensor,
 };
@@ -73,17 +75,18 @@ macro_rules! generate_isq {
                         $n_quantized.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                         let qtensor = QTensor::quantize(&t, dtype).unwrap();
                         let data = qtensor.data().unwrap();
-                        //let shape = qtensor.shape();
+                        let shape = Shape::dims(&qtensor.shape());
+
                         info!("Writing ISQ to file isq");
                         fs::write("isq", data).expect("Unable to write ISQ!");
-                        //fs::write("isq_shape", shape.data()).expect("Unable to write ISQ!");
+                        fs::write("isq_shape", shape).expect("Unable to write ISQ!");
                         // save the data here
                         QMatMul::QTensor(Arc::new(qtensor))
                     }
                     else {
                         $n_quantized.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                         let qtensor = QTensor::quantize(&t, dtype).unwrap();
-                        let data = qtensor.data().unwrap();
+                        //let data = qtensor.data().unwrap();
                         info!("Writing ISQ to file isq");
                         // save the data here
                         QMatMul::QTensor(Arc::new(qtensor))

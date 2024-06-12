@@ -5,7 +5,7 @@ use std::vec::Vec;
 
 use candle_core::{
     shape::Shape,
-    quantized::{GgmlDType, QMatMul, QTensor},
+    quantized::{GgmlDType, QMatMul, QTensor, QStorage::Cpu},
     Device, Tensor,
 };
 use indicatif::{ProgressBar, ProgressStyle};
@@ -75,8 +75,7 @@ macro_rules! generate_isq {
                         $n_quantized.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                         let qtensor = QTensor::quantize(&t, dtype).unwrap();
                         let data = qtensor.data().unwrap();
-                        let shape = Shape::dims(&qtensor.shape());
-
+                        let shape = Shape::dims(&qtensor.shape()).into_iter().map(|x| x.to_string()).collect::<Vec<_>>().join(",");
                         info!("Writing ISQ to file isq");
                         fs::write("isq", data).expect("Unable to write ISQ!");
                         fs::write("isq_shape", shape).expect("Unable to write ISQ!");
@@ -86,7 +85,10 @@ macro_rules! generate_isq {
                     else {
                         $n_quantized.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
                         let qtensor = QTensor::quantize(&t, dtype).unwrap();
-                        //let data = qtensor.data().unwrap();
+                        let data = qtensor.data().unwrap();
+                        let read_data:Vec<u8> = fs::read("isq")?;
+                        let recreated_tensor = QTensor::new(Cpu(Box::new(read_data)), qtensor.shape());
+
                         info!("Writing ISQ to file isq");
                         // save the data here
                         QMatMul::QTensor(Arc::new(qtensor))
